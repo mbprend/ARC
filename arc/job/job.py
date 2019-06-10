@@ -195,11 +195,15 @@ class Job(object):
                             self.software = 'molpro'
                         elif 'gaussian' in self.ess_settings.keys():
                             self.software = 'gaussian'
+                        elif 'orca' in self.ess_settings.keys():
+                            self.software = 'orca'
                         elif 'qchem' in self.ess_settings.keys():
                             self.software = 'qchem'
                     elif 'b3lyp' in self.method:
                         if 'gaussian' in self.ess_settings.keys():
                             self.software = 'gaussian'
+                        elif 'orca' in self.ess_settings.keys():
+                            self.software = 'orca'
                         elif 'qchem' in self.ess_settings.keys():
                             self.software = 'qchem'
                         elif 'molpro' in self.ess_settings.keys():
@@ -229,6 +233,11 @@ class Job(object):
                             raise JobError('Could not find the QChem software to run {0}/{1}'.format(
                                 self.method, self.basis_set))
                         self.software = 'qchem'
+                    elif 'dlpno' in self.method:
+                        if 'orca' not in self.ess_settings.keys():
+                            raise JobError('Could not find the Orca software to run {0}/{1}'.format(
+                                self.method, self.basis_set))
+                        self.software = 'orca'
                 elif job_type == 'scan':
                     if 'wb97xd' in self.method:
                         if 'gaussian' not in self.ess_settings.keys():

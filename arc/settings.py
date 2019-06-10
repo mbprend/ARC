@@ -61,6 +61,7 @@ global_ess_settings = {
     'molpro': 'server2',
     'qchem': 'server1',
     'onedmin': 'server1',
+    'orca': 'c3ddb',
 }
 
 # List here job types to execute by default
@@ -80,7 +81,8 @@ default_job_types = {'conformers': True,      # defaults to True if not specifie
 levels_ess = {
     'gaussian': ['b3lyp', 'm062x'],
     'molpro': ['ccsd', 'cisd', 'vpz'],
-    'qchem': ['m06-2x', 'def2']
+    'qchem': ['m06-2x'],
+    'orca': ['dlpno', 'def2']
 }
 
 check_status_command = {'OGE': 'export SGE_ROOT=/opt/sge; /opt/sge/bin/lx24-amd64/qstat',
@@ -104,12 +106,14 @@ t_max_format = {'OGE': 'hours',
 input_filename = {'gaussian': 'input.gjf',
                   'qchem': 'input.in',
                   'molpro': 'input.in',
+                  'orca': 'input.inp',
                   'onedmin': 'input.in',
                   }
 
 output_filename = {'gaussian': 'input.log',
                    'qchem': 'output.out',
                    'molpro': 'input.out',
+                   'orca': 'input.log',
                    'onedmin': 'output.out',
                    }
 

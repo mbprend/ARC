@@ -63,6 +63,13 @@ $end
 
 """,
 
+    'orca': """! {restricted} {method} {basis} {fine} {job_type_1}{job_type_2} {trsh}
+*xyz {charge} {multiplicity}
+{xyz}
+*
+
+""",
+
     'molpro': """***,name
 memory,{memory},m;
 geometry={{angstrom;
