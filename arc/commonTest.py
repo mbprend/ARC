@@ -58,7 +58,8 @@ class TestARC(unittest.TestCase):
         ess_settings3 = {'gaussian': server_names[0], 'molpro': [server_names[1], server_names[0]],
                          'qchem': server_names[0]}
         ess_settings4 = {'gaussian': server_names[0], 'molpro': server_names[1], 'qchem': server_names[0]}
-        ess_settings5 = {'gaussian': 'local', 'molpro': server_names[1], 'qchem': server_names[0]}
+        ess_settings5 = {'gaussian': 'local', 'molpro': server_names[1], 'qchem': server_names[0],
+                         'terachem': server_names[0]}
 
         ess_settings1 = common.check_ess_settings(ess_settings1)
         ess_settings2 = common.check_ess_settings(ess_settings2)
@@ -70,7 +71,7 @@ class TestARC(unittest.TestCase):
 
         for ess in ess_list:
             for soft, server_list in ess.items():
-                self.assertTrue(soft in ['gaussian', 'molpro', 'qchem'])
+                self.assertTrue(soft in ['gaussian', 'molpro', 'qchem', 'terachem', 'orca'])
                 self.assertIsInstance(server_list, list)
 
         with self.assertRaises(SettingsError):

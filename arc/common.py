@@ -26,8 +26,10 @@ import numpy as np
 
 from arkane.gaussian import GaussianLog
 from arkane.molpro import MolproLog
+# from arkane.orca import OrcaLog
 from arkane.qchem import QChemLog
-from arkane.statmech import determine_qm_software
+from arkane.terachem import TeraChemLog
+from arkane.util import determine_qm_software
 from rmgpy.molecule.element import getElement
 from rmgpy.qm.qmdata import QMData
 from rmgpy.qm.symmetry import PointGroupCalculator
@@ -41,25 +43,69 @@ logger = logging.getLogger('arc')
 VERSION = '1.1.0'
 
 
-def time_lapse(t0):
+def initialize_job_types(job_types):
     """
-    A helper function returning the elapsed time since t0.
+    A helper function for initializing job_types.
+    Returns the comprehensive (default values for missing job types) job types for ARC.
 
     Args:
-        t0 (time.pyi): The initial time the count starts from.
+        job_types (dict): Keys are job types, values are booleans of whether or not to consider this job type.
 
     Returns:
-        str: A "D HH:MM:SS" formatted time difference between now and t0.
+        job_types (dict): An updated (comprehensive) job type dictionary.
     """
-    t = time.time() - t0
-    m, s = divmod(t, 60)
-    h, m = divmod(m, 60)
-    d, h = divmod(h, 24)
-    if d > 0:
-        d = str(d) + ' days, '
-    else:
-        d = ''
-    return '{0}{1:02.0f}:{2:02.0f}:{3:02.0f}'.format(d, h, m, s)
+    defaults_to_true = ['conformers', 'opt', 'fine', 'freq', 'sp', '1d_rotors']
+    defaults_to_false = ['onedmin', 'orbitals', 'bde']
+    if job_types is None:
+        job_types = default_job_types
+    if 'lennard_jones' in job_types:
+        # rename lennard_jones to OneDMin
+        job_types['onedmin'] = job_types['lennard_jones']
+        del job_types['lennard_jones']
+    if 'fine_grid' in job_types:
+        # rename fine_grid to fine
+        job_types['fine'] = job_types['fine_grid']
+        del job_types['fine_grid']
+    for job_type in defaults_to_true:
+        if job_type not in job_types:
+            # set default value to True if this job type key is missing
+            job_types[job_type] = True
+    for job_type in defaults_to_false:
+        if job_type not in job_types:
+            # set default value to False if this job type key is missing
+            job_types[job_type] = False
+    for job_type in job_types.keys():
+        if job_type not in defaults_to_true and job_type not in defaults_to_false:
+            raise InputError("Job type '{0}' not supported. Check the job types dictionary "
+                             "(either in ARC's input or in default_job_types under settings)".format(job_type))
+    job_types_report = [job_type for job_type, val in job_types.items() if val]
+    logger.info('\nConsidering the following job types: {0}\n'.format(job_types_report))
+    return job_types
+
+
+def determine_ess(log_file):
+    """
+    Determine the ESS to which the log file belongs.
+
+    Args:
+        log_file (str): The ESS log file path.
+
+    Returns:
+        str: The ESS (either 'gaussian', 'qchem', or 'molpro'.
+    """
+    log = determine_qm_software(log_file)
+    if isinstance(log, GaussianLog):
+        return 'gaussian'
+    if isinstance(log, QChemLog):
+        return 'qchem'
+    if isinstance(log, MolproLog):
+        return 'molpro'
+    # if isinstance(log, TeraChemLog):
+    #     return 'terachem'
+    # if isinstance(log, OrcaLog):
+    #     return 'orca'
+    raise InputError('Could not identify the log file in {0} as belonging to '
+                     'Gaussian, QChem, Molpro, TeraChem, nor Orca.')
 
 
 def check_ess_settings(ess_settings=None):
@@ -92,7 +138,7 @@ def check_ess_settings(ess_settings=None):
     # run checks:
     for ess, server_list in settings.items():
         if ess.lower() not in ['gaussian', 'qchem', 'molpro', 'orca', 'terachem', 'onedmin', 'gromacs']:
-            raise SettingsError('Recognized ESS software are Gaussian, QChem, Molpro, Orca or OneDMin. '
+            raise SettingsError('Recognized ESS software are Gaussian, QChem, Molpro, Orca, TeraChem or OneDMin. '
                                 'Got: {0}'.format(ess))
         for server in server_list:
             if not isinstance(server, bool) and server.lower() not in servers.keys():
@@ -411,6 +457,7 @@ def min_list(lst):
     return min([entry for entry in lst if entry is not None])
 
 
+<<<<<<< master
 def initialize_job_types(job_types):
     """
     A helper function for initializing job_types.
@@ -474,6 +521,8 @@ def determine_ess(log_file):
     raise InputError('Could not identify the log file in {0} as belonging to Gaussian, QChem, or Molpro.')
 
 
+=======
+>>>>>>> Added TeraChem support to ARC
 def calculate_dihedral_angle(coords, torsion):
     """
     Calculate a dihedral angle. Inspired by ASE Atoms.get_dihedral().
@@ -546,3 +595,24 @@ def almost_equal_coords_lists(xyz1, xyz2):
         else:
             return False
     return True
+
+
+def time_lapse(t0):
+    """
+    A helper function returning the elapsed time since t0.
+
+    Args:
+        t0 (time.pyi): The initial time the count starts from.
+
+    Returns:
+        str: A "D HH:MM:SS" formatted time difference between now and t0.
+    """
+    t = time.time() - t0
+    m, s = divmod(t, 60)
+    h, m = divmod(m, 60)
+    d, h = divmod(h, 24)
+    if d > 0:
+        d = str(d) + ' days, '
+    else:
+        d = ''
+    return '{0}{1:02.0f}:{2:02.0f}:{3:02.0f}'.format(d, h, m, s)

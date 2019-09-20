@@ -18,6 +18,7 @@ from arc.job.local import get_last_modified_time, submit_job, delete_job, execut
 from arc.job.submit import submit_scripts
 from arc.job.ssh import SSHClient
 from arc.job.trsh import determine_ess_status, trsh_job_on_server
+from arc.plotter import save_geo
 from arc.settings import arc_path, servers, submit_filename, t_max_format, input_filename, output_filename, \
     rotor_scan_resolution, levels_ess
 from arc.species.converter import xyz_to_str, str_to_xyz, check_xyz_dict
@@ -532,6 +533,20 @@ class Job(object):
         if self.software == 'gaussian' and '/' in self.level_of_theory:
             slash = '/'
 
+        dispersion = ''
+        if self.software == 'terachem':
+            if self.method[-2:] == 'd2':
+                dispersion = 'd2'
+                self.method = self.method[:-2]
+            elif self.method[-2:] == 'd3':
+                dispersion = 'd3'
+                self.method = self.method[:-2]
+            elif self.method[-1:] == 'd':
+                dispersion = 'yes'
+                self.method = self.method[:-2]
+            else:
+                dispersion = 'no'
+
         if (self.multiplicity > 1 and '/' in self.level_of_theory) or self.number_of_radicals > 1:
             # don't add 'u' to composite jobs. Do add 'u' for bi-rad singlets if `number_of_radicals` > 1
             if self.number_of_radicals > 1:
@@ -608,6 +623,15 @@ wf,spin={spin},charge={charge};}}
                     job_type_1 = "\noptg, root=2, method=qsd, readhess, savexyz='geometry.xyz'"
                 else:
                     job_type_1 = "\noptg, savexyz='geometry.xyz'"
+            elif self.software == 'terachem':
+                if self.is_ts:
+                    job_type_1 = 'ts'
+                else:
+                    job_type_1 = 'minimize'
+                if self.fine:
+                    fine = '4\ndynamicgrid yes'  # corresponds to ~60,000 grid points/atom
+                else:
+                    fine = '1'  # default, corresponds to ~800 grid points/atom
 
         elif self.job_type == 'orbitals' and self.software == 'qchem':
             if self.is_ts:
@@ -647,6 +671,8 @@ name
                 job_type_1 = 'freq'
             elif self.software == 'molpro':
                 job_type_1 = '\n{frequencies;\nthermo;\nprint,HESSIAN,thermo;}'
+            elif self.software == 'terachem':
+                job_type_1 = 'frequencies'
 
         elif self.job_type == 'optfreq':
             if self.software == 'gaussian':
@@ -706,6 +732,8 @@ $end
                 job_type_1 = 'sp'
             elif self.software == 'molpro':
                 pass
+            elif self.software == 'terachem':
+                job_type_1 = 'energy'
 
         if self.job_type == 'composite':
             if self.software == 'gaussian':
@@ -810,6 +838,11 @@ $end
                 # xqc will do qc (quadratic convergence) if the job fails w/o it, so use by default
                 self.trsh = 'scf=xqc'
 
+        if self.software == 'terachem':
+            # TeraChem requires an additional xyz file.
+            # Note: the xyz filename must correspond to the xyz filename specified in TeraChem's input file!
+            save_geo(xyz=self.xyz, path=self.local_path, filename='coord', format_='xyz')
+
         if self.job_type == 'irc':  # TODO
             if self.fine:
                 # Note that the Acc2E argument is not available in Gaussian03
@@ -844,7 +877,8 @@ $end
                                                multiplicity=self.multiplicity, spin=self.spin, xyz=xyz_to_str(self.xyz),
                                                job_type_1=job_type_1, job_type_2=job_type_2, scan=scan_string,
                                                restricted=restricted, fine=fine, shift=self.shift, trsh=self.trsh,
-                                               scan_trsh=self.scan_trsh, bath=self.bath_gas, constraint=constraint) \
+                                               scan_trsh=self.scan_trsh, bath=self.bath_gas, constraint=constraint,
+                                               dispersion=dispersion) \
                     if self.input is not None else None
             except KeyError:
                 logger.error('Could not interpret all input file keys in\n{0}'.format(self.input))
@@ -956,6 +990,15 @@ $end
             if not os.path.isfile(local_log_file_path):
                 logger.warning('Could not download Molpro log file for {0} '
                                '(this is not the output file)'.format(self.job_name))
+
+        # download terachem files (in addition to the output file)
+        if self.software.lower() == 'terachem':
+            base_path = os.path.join(self.remote_path, 'scr')
+            filenames = ['results.dat', 'output.molden', 'charge.xls', 'charge_mull.xls', 'optlog.xls', 'optim.xyz']
+            for filename in filenames:
+                remote_log_file_path = os.path.join(base_path, filename)
+                local_log_file_path = os.path.join(self.local_path, 'scr', filename)
+                ssh.download_file(remote_file_path=remote_log_file_path, local_file_path=local_log_file_path)
 
     def run(self):
         """
@@ -1127,7 +1170,7 @@ $end
                 os.remove(self.local_path_to_orbitals_file)
             if os.path.exists(self.local_path_to_check_file):
                 os.remove(self.local_path_to_check_file)
-            self._download_output_file()  # also downloads the Gaussian check file and orbital file if exist
+            self._download_output_file()  # also downloads the check file and orbital file if exist
         else:
             # If running locally, just rename the output file to "output.out" for consistency between software
             if self.final_time is None:
@@ -1199,7 +1242,7 @@ $end
                 self.software = 'qchem'
         elif self.job_type == 'composite':
             if 'gaussian' not in self.ess_settings.keys():
-                raise JobError('Could not find the Gaussian software to run the composite method {0}.\n'
+                raise JobError('Could not find  Gaussian to run the composite method {0}.\n'
                                'ess_settings is:\n{1}'.format(self.method, self.ess_settings))
             self.software = 'gaussian'
         elif self.job_type == 'ff_param_fit':
@@ -1219,7 +1262,7 @@ $end
                     if 'b2' in self.method or 'dsd' in self.method or 'pw2' in self.method:
                         # this is a double-hybrid (MP2) DFT method, use Gaussian
                         if 'gaussian' not in self.ess_settings.keys():
-                            raise JobError('Could not find the Gaussian software to run the double-hybrid method {0}.\n'
+                            raise JobError('Could not find Gaussian to run the double-hybrid method {0}.\n'
                                            'ess_settings is:\n{1}'.format(self.method, self.ess_settings))
                         self.software = 'gaussian'
                     elif 'ccs' in self.method or 'cis' in self.method:
@@ -1234,43 +1277,57 @@ $end
                             self.software = 'gaussian'
                         elif 'qchem' in self.ess_settings.keys():
                             self.software = 'qchem'
+                        elif 'terachem' in self.ess_settings.keys():
+                            self.software = 'terachem'
                         elif 'molpro' in self.ess_settings.keys():
                             self.software = 'molpro'
-                    elif 'wb97xd' in self.method:
-                        if 'gaussian' not in self.ess_settings.keys():
-                            raise JobError('Could not find the Gaussian software to run {0}/{1}'.format(
+                    elif 'wb97' in self.method:
+                        if '-d' in self.method:
+                            self.software = 'qchem'
+                        elif 'terachem' in self.ess_settings.keys():
+                            self.software = 'terachem'
+                        elif 'gaussian' in self.ess_settings.keys():
+                            self.software = 'gaussian'
+                        elif 'qchem' in self.ess_settings.keys():
+                            self.software = 'qchem'
+                        else:
+                            raise JobError('Could not find a software to run {0}/{1}'.format(
                                 self.method, self.basis_set))
-                        self.software = 'gaussian'
-                    elif 'wb97x-d3' in self.method or 'wb97m' in self.method:
-                        if 'qchem' not in self.ess_settings.keys():
-                            raise JobError('Could not find the QChem software to run {0}/{1}'.format(
-                                self.method, self.basis_set))
-                        self.software = 'qchem'
                     elif 'b97' in self.method or 'def2' in self.basis_set:
                         if 'gaussian' in self.ess_settings.keys():
                             self.software = 'gaussian'
+                        elif 'terachem' in self.ess_settings.keys():
+                            self.software = 'terachem'
                         elif 'qchem' in self.ess_settings.keys():
                             self.software = 'qchem'
                     elif 'm062x' in self.method:  # without dash
                         if 'gaussian' not in self.ess_settings.keys():
-                            raise JobError('Could not find the Gaussian software to run {0}/{1}'.format(
-                                self.method, self.basis_set))
+                            raise JobError('Could not find Gaussian to run {0}/{1}'.format(self.method, self.basis_set))
                         self.software = 'gaussian'
                     elif 'm06-2x' in self.method:  # with dash
                         if 'qchem' not in self.ess_settings.keys():
-                            raise JobError('Could not find the QChem software to run {0}/{1}'.format(
-                                self.method, self.basis_set))
+                            raise JobError('Could not find QChem to run {0}/{1}'.format(self.method, self.basis_set))
                         self.software = 'qchem'
+                    elif self.method in ['pbe', 'wpbe', 'pbe0']:
+                        if 'terachem' in self.ess_settings.keys():
+                            self.software = 'terachem'
+                        elif 'qchem' in self.ess_settings.keys():
+                            self.software = 'qchem'
+                    elif self.method in ['svwn', 'bhandhlyp', 'b3p86', 'b3p86', 'b3lyp5', 'b3pw91', 'pw91', 'revpbe',
+                                         'revpbe0', 'wpbeh', 'bop', 'mubop', 'camb3lyp']:
+                        if 'terachem' in self.ess_settings.keys():
+                            self.software = 'terachem'
+                    elif '1pbe' in self.method or '2pbe' in self.method or '2pbe' in self.method:
+                        if 'gaussian' in self.ess_settings.keys():
+                            self.software = 'gaussian'
                 elif self.job_type == 'scan':
                     if 'wb97xd' in self.method:
                         if 'gaussian' not in self.ess_settings.keys():
-                            raise JobError('Could not find the Gaussian software to run {0}/{1}'.format(
-                                self.method, self.basis_set))
+                            raise JobError('Could not find Gaussian to run {0}/{1}'.format(self.method, self.basis_set))
                         self.software = 'gaussian'
                     elif 'wb97x-d3' in self.method:
                         if 'qchem' not in self.ess_settings.keys():
-                            raise JobError('Could not find the QChem software to run {0}/{1}'.format(
-                                self.method, self.basis_set))
+                            raise JobError('Could not find QChem to run {0}/{1}'.format(self.method, self.basis_set))
                         self.software = 'qchem'
                     elif 'b3lyp' in self.method:
                         if 'gaussian' in self.ess_settings.keys():
@@ -1284,13 +1341,11 @@ $end
                             self.software = 'qchem'
                     elif 'm06-2x' in self.method:  # with dash
                         if 'qchem' not in self.ess_settings.keys():
-                            raise JobError('Could not find the QChem software to run {0}/{1}'.format(
-                                self.method, self.basis_set))
+                            raise JobError('Could not find QChem to run {0}/{1}'.format(self.method, self.basis_set))
                         self.software = 'qchem'
                     elif 'm062x' in self.method:  # without dash
                         if 'gaussian' not in self.ess_settings.keys():
-                            raise JobError('Could not find the Gaussian software to run {0}/{1}'.format(
-                                self.method, self.basis_set))
+                            raise JobError('Could not find Gaussian to run {0}/{1}'.format(self.method, self.basis_set))
                         self.software = 'gaussian'
                     elif 'pv' in self.basis_set:
                         if 'molpro' in self.ess_settings.keys():
@@ -1301,7 +1356,7 @@ $end
                             self.software = 'qchem'
                 elif self.job_type in ['gsm', 'irc']:
                     if 'gaussian' not in self.ess_settings.keys():
-                        raise JobError('Could not find the Gaussian software to run {0}'.format(self.job_type))
+                        raise JobError('Could not find Gaussian to run {0}'.format(self.job_type))
                     self.software = 'gaussian'
             if self.software is None:
                 # if still no software was determined, just try by order, if exists
@@ -1327,6 +1382,9 @@ $end
                 elif 'molpro' in self.ess_settings.keys():
                     logger.error('Setting it to Molpro')
                     self.software = 'molpro'
+                elif 'terachem' in self.ess_settings.keys():
+                    logger.error('Setting it to TeraChem')
+                    self.software = 'terachem'
 
     def set_cpu_and_mem(self, memory):
         """
@@ -1431,3 +1489,7 @@ $end
                                                     'local': os.path.join(arc_path, 'arc', 'scripts', 'conformers',
                                                                           'mdp.mdp'),
                                                     'remote': os.path.join(self.remote_path, 'mdp.mdp')})
+            if self.software == 'terachem':
+                self.additional_files_to_upload.append({'name': 'geo', 'source': 'path', 'make_x': False,
+                                                        'local': os.path.join(self.local_path, 'coord.xyz'),
+                                                        'remote': os.path.join(self.remote_path, 'coord.xyz')})

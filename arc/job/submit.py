@@ -194,6 +194,32 @@ echo "============================================================"
 python mdconf.py -s {size}
 
 """,
+        # TeraChem
+        'terachem': """#!/bin/bash -l
+#SBATCH -J {name}
+#SBATCH -e err.txt
+#SBATCH -o out.txt
+#SBATCH -t {t_max}
+#SBATCH --cpus-per-task=1
+#SBATCH --ntasks-per-node=4
+#SBATCH --gres=gpu:2
+#SBATCH --mem-per-cpu={mem_per_cpu}
+
+echo "============================================================"
+echo "Job ID : $SLURM_JOB_ID"
+echo "Job Name : $SLURM_JOB_NAME"
+echo "Starting on : $(date)"
+echo "Running on node : $SLURMD_NODENAME"
+echo "Current directory : $(pwd)"
+echo "============================================================"
+
+module load cuda92/toolkit
+module load medsci
+module load terachem
+
+terachem input.in > output.out
+
+""",
     },
 
     'pharos': {

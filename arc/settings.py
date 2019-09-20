@@ -62,6 +62,7 @@ global_ess_settings = {
     'molpro': 'server2',
     'qchem': 'server1',
     'onedmin': 'server1',
+    'terachem': 'server1',
 }
 
 # List here job types to execute by default
@@ -82,9 +83,10 @@ supported_ess = ['gaussian', 'molpro', 'qchem']  # use lowercase when adding new
 # Avoid ascribing the same phrase to more than one software, this may cause undeterministic assignment of software
 # Format is levels_ess = {ess: ['phrase1', 'phrase2'], ess2: ['phrase3', 'phrase3']}
 levels_ess = {
-    'gaussian': ['apfd', 'b3lyp', 'm062x'],
-    'molpro': ['ccsd', 'cisd', 'vpz'],
-    'qchem': ['m06-2x']
+    'gaussian': ['apfd', 'm062x'],
+    'molpro': ['ccsd', 'cisd'],
+    'qchem': ['m06-2x'],
+    'terachem': ['pbe'],
 }
 
 check_status_command = {'OGE': 'export SGE_ROOT=/opt/sge; /opt/sge/bin/lx24-amd64/qstat',
@@ -108,12 +110,14 @@ t_max_format = {'OGE': 'hours',
 input_filename = {'gaussian': 'input.gjf',
                   'qchem': 'input.in',
                   'molpro': 'input.in',
+                  'terachem': 'input.in',
                   'onedmin': 'input.in',
                   }
 
 output_filename = {'gaussian': 'input.log',
                    'qchem': 'output.out',
                    'molpro': 'input.out',
+                   'terachem': 'output.out',
                    'onedmin': 'output.out',
                    'gromacs': 'output.yml'
                    }

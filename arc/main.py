@@ -882,7 +882,7 @@ class ARC(object):
 
         # os.system('. ~/.bashrc')  # TODO This might be a security risk - rethink it
 
-        for software in ['gaussian', 'molpro', 'qchem', 'orca', 'onedmin']:
+        for software in ['gaussian', 'molpro', 'qchem', 'orca', 'onedmin', 'terachem']:
             self.ess_settings[software] = list()
 
         # first look for ESS locally (e.g., when running ARC itself on a server)
@@ -900,11 +900,14 @@ class ARC(object):
             qchem = find_executable('qchem')
             if qchem:
                 self.ess_settings['qchem'] = ['local']
-            qchem = find_executable('orca')
-            if qchem:
+            orca = find_executable('orca')
+            if orca:
                 self.ess_settings['orca'] = ['local']
             molpro = find_executable('molpro')
             if molpro:
+                self.ess_settings['molpro'] = ['local']
+            terachem = find_executable('terachem')
+            if terachem:
                 self.ess_settings['molpro'] = ['local']
             if any([val for val in self.ess_settings.values()]):
                 if diagnostics:
@@ -955,6 +958,15 @@ class ARC(object):
                 self.ess_settings['orca'].append(server)
             elif diagnostics:
                 logger.info('  Did NOT find Orca on {0}'.format(server))
+
+            cmd = '. ~/.bashrc; which terachem'
+            terachem = ssh.send_command_to_server(cmd)[0]
+            if terachem:
+                if diagnostics:
+                    logging.info('  Found TeraChem on {0}'.format(server))
+                self.ess_settings['terachem'].append(server)
+            elif diagnostics:
+                logging.info('  Did NOT find TeraChem on {0}'.format(server))
 
             cmd = '. .bashrc; which molpro'
             molpro = ssh.send_command_to_server(cmd)[0]

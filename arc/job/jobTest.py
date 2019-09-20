@@ -27,7 +27,7 @@ class TestJob(unittest.TestCase):
         """
         cls.maxDiff = None
         cls.ess_settings = {'gaussian': ['server1', 'server2'], 'molpro': ['server2'],
-                            'qchem': ['server1'], 'onedmin': ['server1']}
+                            'qchem': ['server1'], 'onedmin': ['server1'], 'terachem': ['server1']}
         cls.xyz_c = {'symbols': ('C',), 'isotopes': (12,), 'coords': ((0.0, 0.0, 0.0),)}
         cls.job1 = Job(project='arc_project_for_testing_delete_after_usage3', ess_settings=cls.ess_settings,
                        species_name='tst_spc', xyz=cls.xyz_c, job_type='opt', level_of_theory='b3lyp/6-31+g(d)',
@@ -44,7 +44,7 @@ class TestJob(unittest.TestCase):
         final_time = job_dict['final_time']
         expected_dict = {'initial_time': initial_time,
                          'final_time': final_time,
-                         'ess_settings': {'gaussian': ['server1', 'server2'],
+                         'ess_settings': {'gaussian': ['server1', 'server2'], 'terachem': ['server1'],
                                           'molpro': [u'server2'], 'onedmin': [u'server1'], 'qchem': [u'server1']},
                          'species_name': 'tst_spc',
                          'is_ts': False,
@@ -76,11 +76,11 @@ class TestJob(unittest.TestCase):
         self.assertEqual(job.charge, 0)
         self.assertEqual(job.species_name, 'tst_spc')
         self.assertEqual(job.server, 'server1')
-        self.assertEqual(job.level_of_theory, 'm062x/6-311g')
+        self.assertEqual(job.level_of_theory, 'b3lyp/6-31+g(d)')
         self.assertEqual(job.job_type, 'scan')
         self.assertEqual(job.project_directory.split('/')[-1], 'project_test')
-        self.assertEqual(job.method, 'm062x')
-        self.assertEqual(job.basis_set, '6-311g')
+        self.assertEqual(job.method, 'b3lyp')
+        self.assertEqual(job.basis_set, '6-31+g(d)')
         self.assertFalse(job.is_ts)
 
     def test_automatic_ess_assignment(self):
@@ -98,7 +98,7 @@ class TestJob(unittest.TestCase):
         job0 = Job(project='project_test', ess_settings=self.ess_settings, species_name='tst_spc', xyz=self.xyz_c,
                    job_type='opt', level_of_theory='wb97xd/6-311++g(d,p)', multiplicity=1, testing=True,
                    project_directory=os.path.join(arc_path, 'Projects', 'project_test'), fine=True, job_num=100)
-        self.assertEqual(job0.software, 'gaussian')
+        self.assertEqual(job0.software, 'terachem')
 
         job0 = Job(project='project_test', ess_settings=self.ess_settings, species_name='tst_spc', xyz=self.xyz_c,
                    job_type='opt', level_of_theory='wb97x-d3/6-311++g(d,p)', multiplicity=1, testing=True,
@@ -184,11 +184,18 @@ class TestJob(unittest.TestCase):
         self.job1.method = 'wb97xd'
         self.job1.software = None
         self.job1.deduce_software()
-        self.assertEqual(self.job1.software, 'gaussian')
+        self.assertEqual(self.job1.software, 'terachem')
 
         self.job1.job_type = 'scan'
         self.job1.level_of_theory = 'm062x/6-311g'
         self.job1.method = 'm062x'
+        self.job1.software = None
+        self.job1.deduce_software()
+        self.assertEqual(self.job1.software, 'gaussian')
+
+        # return to original value
+        self.job1.level_of_theory = 'b3lyp/6-31+g(d)'
+        self.job1.method = 'b3lyp'
         self.job1.software = None
         self.job1.deduce_software()
         self.assertEqual(self.job1.software, 'gaussian')
