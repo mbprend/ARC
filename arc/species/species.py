@@ -762,7 +762,7 @@ class ARCSpecies(object):
             confs_to_dft (int, optional): The number of conformers to store in the .conformers attribute of the species
                                           that will later be DFT'ed at the conformers_level.
             plot_path (str, optional): A folder path in which the plot will be saved.
-                                                If None, the plot will not be shown (nor saved).
+                                       If None, the plot will not be shown (nor saved).
         """
         if not self.is_ts:
             if not self.charge:

@@ -62,6 +62,37 @@ def parse_frequencies(path, software):
     return freqs
 
 
+def parse_geometry(path):
+    """
+    Parse the xyz geometry from an ESS log file.
+
+    Args:
+        path (str): The ESS log file to parse from
+
+    Returns:
+        xyz (dict): The geometry.
+    """
+    log = determine_qm_software(fullpath=path)
+    coords, number, _ = log.loadGeometry()
+    xyz = xyz_from_data(coords=coords, numbers=number)
+    return xyz
+
+
+def parse_energy(path):
+    """
+    Parse the energy from an ESS log file.
+
+    Args:
+        path (str): The ESS log file to parse from
+
+    Returns:
+        energy (float): The energy in kJ/mol.
+    """
+    log = determine_qm_software(fullpath=path)
+    energy = log.loadEnergy() * 0.001  # convert J/mol to kJ/mol
+    return energy
+
+
 def parse_t1(path):
     """
     Parse the T1 parameter from a Molpro coupled cluster calculation.
@@ -101,7 +132,7 @@ def parse_xyz_from_file(path):
     Parse xyz coordinated from:
     - .xyz: XYZ file
     - .gjf: Gaussian input file
-    - .out or .log: ESS output file (Gaussian, QChem, Molpro)
+    - .out or .log: ESS output file (Gaussian, QChem, Molpro) - calls parse_geometry()
     - other: Molpro or QChem input file
 
     Args:
@@ -130,9 +161,7 @@ def parse_xyz_from_file(path):
                 if len(splits) == 2 and all([s.isdigit() for s in splits]):
                     start_parsing = True
     elif 'out' in file_extension or 'log' in file_extension:
-        log = determine_qm_software(fullpath=path)
-        coords, number, _ = log.loadGeometry()
-        xyz = xyz_from_data(coords=coords, numbers=number)
+        xyz = parse_geometry(path)
     else:
         record = False
         for line in lines:

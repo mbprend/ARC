@@ -1465,18 +1465,17 @@ class Scheduler(object):
             i (int): The conformer index.
         """
         if job.job_status[1]['status'] == 'done':
-            log = determine_qm_software(fullpath=job.local_path_to_output_file)
-            coords, number, _ = log.loadGeometry()
+            xyz = parser.parse_geometry(job.local_path_to_output_file)
+            e_elect = parser.parse_e_elect(path=job.local_path_to_output_file)
             if self.species_dict[label].is_ts:
-                self.species_dict[label].ts_guesses[i].energy = parser.parse_e_elect(path=job.local_path_to_output_file)
-                self.species_dict[label].ts_guesses[i].opt_xyz = xyz_from_data(coords=coords, numbers=number)
+                self.species_dict[label].ts_guesses[i].energy = e_elect
+                self.species_dict[label].ts_guesses[i].opt_xyz = xyz
                 self.species_dict[label].ts_guesses[i].index = i
                 logger.debug('Energy for TSGuess {0} of {1} is {2:.2f}'.format(
                     i, self.species_dict[label].label, self.species_dict[label].ts_guesses[i].energy))
             else:
-                self.species_dict[label].conformer_energies[i] = parser.parse_e_elect(
-                    path=job.local_path_to_output_file)
-                self.species_dict[label].conformers[i] = xyz_from_data(coords=coords, numbers=number)
+                self.species_dict[label].conformer_energies[i] = e_elect
+                self.species_dict[label].conformers[i] = xyz
                 logger.debug('Energy for conformer {0} of {1} is {2:.2f}'.format(
                     i, self.species_dict[label].label, self.species_dict[label].conformer_energies[i]))
         else:
@@ -1701,9 +1700,7 @@ class Scheduler(object):
         logger.debug('parsing composite geo for {0}'.format(job.job_name))
         freq_ok = False
         if job.job_status[1]['status'] == 'done':
-            log = determine_qm_software(fullpath=job.local_path_to_output_file)
-            coords, number, _ = log.loadGeometry()
-            self.species_dict[label].final_xyz = xyz_from_data(coords=coords, numbers=number)
+            self.species_dict[label].final_xyz = parser.parse_geometry(job.local_path_to_output_file)
             self.output[label]['job_types']['composite'] = True
             self.output[label]['job_types']['opt'] = True
             self.output[label]['job_types']['sp'] = True
@@ -1759,9 +1756,7 @@ class Scheduler(object):
         success = False
         logger.debug('parsing opt geo for {0}'.format(job.job_name))
         if job.job_status[1]['status'] == 'done':
-            log = determine_qm_software(fullpath=job.local_path_to_output_file)
-            coords, number, _ = log.loadGeometry()
-            self.species_dict[label].final_xyz = xyz_from_data(coords=coords, numbers=number)
+            self.species_dict[label].final_xyz = parser.parse_geometry(job.local_path_to_output_file)
             if not job.fine and self.job_types['fine'] and not job.software == 'molpro':
                 # Run opt again using a finer grid.
                 xyz = self.species_dict[label].final_xyz
@@ -2153,12 +2148,11 @@ class Scheduler(object):
             job (Job): The rotor scan job object.
         """
         if job.job_status[1]['status'] == 'done':
-            log = determine_qm_software(fullpath=job.local_path_to_output_file)
-            coords, number, _ = log.loadGeometry()
-            xyz = xyz_from_data(coords=coords, numbers=number)
+            xyz = parser.parse_geometry(job.local_path_to_output_file)
             is_isomorphic = self.species_dict[label].check_xyz_isomorphism(xyz=xyz, verbose=False)
             for rotor_dict in self.species_dict[label].rotors_dict.values():
                 if rotor_dict['pivots'] == job.pivots:
+<<<<<<< master
                     key = tuple('{0:.2f}'.format(dihedral) for dihedral in job.directed_dihedrals)
                     rotor_dict['directed_scan'][key] = {'energy': parser.parse_e_elect(
                                                                   path=job.local_path_to_output_file),
@@ -2166,6 +2160,14 @@ class Scheduler(object):
                                                         'is_isomorphic': is_isomorphic,
                                                         'trsh': job.ess_trsh_methods,
                                                         }
+=======
+                    rotor_dict['directed_scan']['{0:.2f}'.format(job.directed_dihedral)] = \
+                        {'energy': parser.parse_energy(job.local_path_to_output_file),
+                         'xyz': xyz,
+                         'is_isomorphic': is_isomorphic,
+                         'trsh': job.ess_trsh_methods,
+                         }
+>>>>>>> tmp
         else:
             self.troubleshoot_ess(label=label, job=job, level_of_theory=self.scan_level)
 
