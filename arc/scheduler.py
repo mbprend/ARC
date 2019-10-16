@@ -733,7 +733,6 @@ class Scheduler(object):
             if 'restart_due_to_file_not_found' in job.ess_trsh_methods:
                 job.job_status[0] = 'errored'
                 job.job_status[1] = 'errored'
-                return False
 
             if job.job_type not in ['orbitals']:
                 job.ess_trsh_methods.append('restart_due_to_file_not_found')
@@ -748,6 +747,7 @@ class Scheduler(object):
                              directed_dihedrals=job.directed_dihedrals, rotor_index=job.rotor_index)
             if job_name in self.running_jobs[label]:
                 self.running_jobs[label].pop(self.running_jobs[label].index(job_name))
+            return False
 
         if job.job_status[0] != 'running' and job.job_status[1]['status'] != 'running':
             if job_name in self.running_jobs[label]:
