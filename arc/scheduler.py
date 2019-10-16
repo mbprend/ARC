@@ -728,6 +728,27 @@ class Scheduler(object):
                              directed_dihedrals=job.directed_dihedrals, rotor_index=job.rotor_index)
             if job_name in self.running_jobs[label]:
                 self.running_jobs[label].pop(self.running_jobs[label].index(job_name))
+
+        if not os.path.exists(job.local_path_to_output_file):
+            if 'restart_due_to_file_not_found' in job.ess_trsh_methods:
+                job.job_status[0] = 'errored'
+                job.job_status[1] = 'errored'
+                return False
+
+            if job.job_type not in ['orbitals']:
+                job.ess_trsh_methods.append('restart_due_to_file_not_found')
+                logger.warning('Did not find the output file of job {0} with path {1}. Maybe the job never ran.'
+                               ' Re-running job.'.format(job.job_name, job.local_path_to_output_file))
+                self.run_job(label=label, xyz=job.xyz, level_of_theory=job.level_of_theory, job_type=job.job_type,
+                             fine=job.fine, software=job.software, shift=job.shift, trsh=job.trsh, memory=job.memory_gb,
+                             conformer=job.conformer, ess_trsh_methods=job.ess_trsh_methods, scan=job.scan,
+                             pivots=job.pivots, occ=job.occ, scan_trsh=job.scan_trsh, scan_res=job.scan_res,
+                             max_job_time=job.max_job_time, confs=job.conformers, radius=job.radius,
+                             directed_scan_type=job.directed_scan_type, directed_scans=job.directed_scans,
+                             directed_dihedrals=job.directed_dihedrals, rotor_index=job.rotor_index)
+            if job_name in self.running_jobs[label]:
+                self.running_jobs[label].pop(self.running_jobs[label].index(job_name))
+
         if job.job_status[0] != 'running' and job.job_status[1]['status'] != 'running':
             if job_name in self.running_jobs[label]:
                 self.running_jobs[label].pop(self.running_jobs[label].index(job_name))
